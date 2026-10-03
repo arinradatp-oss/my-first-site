@@ -10,6 +10,13 @@
     input { width: 100%; margin-bottom: 8px; }
     li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; }
     .soon { color: #c0392b; font-weight: bold; }
+    h2 { margin-top: 32px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .card h3 { margin: 0 0 4px; }
+    .tag { font-size: 13px; color: #666; }
+    .have { color: #1e8449; }
+    .miss { color: #888; }
+    .urgent { background: #fdecea; color: #c0392b; border-radius: 6px; padding: 2px 6px; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -20,18 +27,33 @@
   <button id="add">เพิ่มของ</button>
   <ul id="list"></ul>
 
+  <h2>เมนูแนะนำ</h2>
+  <div id="recipes"></div>
+
   <script>
     // ข้อมูลจำลอง: ภายหลังเปลี่ยนเป็นดึงจากหลังบ้าน
+    function inDays(n) {
+      const d = new Date(); d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
     let items = [
-      { name: "นม", quantity: "1 กล่อง", expiry_date: "2026-10-06" },
-      { name: "ไข่", quantity: "4 ฟอง", expiry_date: "2026-10-12" }
+      { name: "นม", quantity: "1 กล่อง", expiry_date: inDays(2) },
+      { name: "ไข่", quantity: "4 ฟอง", expiry_date: inDays(10) },
+      { name: "ต้นหอม", quantity: "1 กำ", expiry_date: inDays(1) }
+    ];
+    const recipes = [
+      { title: "ไข่เจียวต้นหอม", cuisine: "ไทย", ingredients: ["ไข่", "ต้นหอม"] },
+      { title: "ข้าวผัดไข่", cuisine: "ไทย", ingredients: ["ข้าว", "ไข่", "ต้นหอม"] },
+      { title: "พุดดิ้งนม", cuisine: "ขนม", ingredients: ["นม", "ไข่", "น้ำตาล"] },
+      { title: "ฟักทองผัดไข่", cuisine: "ไทย", ingredients: ["ฟักทอง", "ไข่"] },
+      { title: "ผัดผักรวม", cuisine: "จีน", ingredients: ["กะหล่ำปลี", "แครอท", "กระเทียม"] }
     ];
 
     function daysLeft(d) {
       return Math.ceil((new Date(d) - new Date()) / 86400000);
     }
 
-    function render() {
+    function renderList() {
       const list = document.getElementById("list");
       list.innerHTML = "";
       items
@@ -45,6 +67,60 @@
           list.appendChild(li);
         });
     }
+
+    function renderRecipes() {
+      const box = document.getElementById("recipes");
+      box.innerHTML = "";
+      const fresh = items.filter(it => daysLeft(it.expiry_date) >= 0);
+
+      const scored = recipes.map(r => {
+        let score = 0, urgent = false;
+        const have = [], miss = [];
+        r.ingredients.forEach(ing => {
+          const hit = fresh.find(it => it.name.includes(ing) || ing.includes(it.name));
+          if (hit) {
+            have.push(ing);
+            score += 1;
+            if (daysLeft(hit.expiry_date) <= 3) { score += 2; urgent = true; }
+          } else {
+            miss.push(ing);
+          }
+        });
+        return { r, score, urgent, have, miss };
+      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+
+      if (scored.length === 0) {
+        box.textContent = "ยังไม่มีเมนูที่ตรงกับของในตู้เย็น ลองเพิ่มวัตถุดิบดูครับ";
+        return;
+      }
+
+      scored.forEach(x => {
+        const div = document.createElement("div");
+        div.className = "card";
+        const h = document.createElement("h3");
+        h.textContent = x.r.title;
+        const tag = document.createElement("div");
+        tag.className = "tag";
+        tag.textContent = x.r.cuisine;
+        const have = document.createElement("div");
+        have.className = "have";
+        have.textContent = "มีแล้ว: " + x.have.join(", ");
+        const miss = document.createElement("div");
+        miss.className = "miss";
+        miss.textContent = x.miss.length ? "ยังขาด: " + x.miss.join(", ") : "ครบทุกอย่าง";
+        div.append(h, tag);
+        if (x.urgent) {
+          const u = document.createElement("span");
+          u.className = "urgent";
+          u.textContent = "ใช้ของใกล้หมดอายุ";
+          div.append(u);
+        }
+        div.append(have, miss);
+        box.appendChild(div);
+      });
+    }
+
+    function render() { renderList(); renderRecipes(); }
 
     document.getElementById("add").onclick = () => {
       const name = document.getElementById("name").value.trim();
