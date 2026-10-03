@@ -21,6 +21,8 @@
     .pair { font-size: 18px; margin-bottom: 6px; }
     .modebar { display: flex; gap: 8px; margin-bottom: 12px; }
     .on { background: #f1c40f; }
+    .filebtn { display: inline-block; padding: 10px 16px; background: #eee; border-radius: 6px; font-size: 16px; }
+    #preview { max-width: 100%; border-radius: 12px; margin: 12px 0; }
   </style>
 </head>
 <body>
@@ -29,6 +31,18 @@
   <input id="qty" placeholder="จำนวน เช่น 3 ฟอง">
   <input id="exp" type="date">
   <button id="add">เพิ่มของ</button>
+
+  <h2>เพิ่มจากรูปถ่าย</h2>
+  <label class="filebtn" for="photo">📷 ถ่ายรูป / เลือกรูป</label>
+  <input id="photo" type="file" accept="image/*" style="display:none">
+  <img id="preview" alt="ตัวอย่างรูป" style="display:none">
+  <div id="photoForm" style="display:none">
+    <p id="photoNote" class="tag"></p>
+    <input id="photoNames" placeholder="ชื่อวัตถุดิบในรูป คั่นด้วยจุลภาค เช่น ไข่, ต้นหอม">
+    <input id="photoExp" type="date">
+    <button id="photoAdd">เพิ่มทั้งหมดเข้าตู้เย็น</button>
+  </div>
+
   <ul id="list"></ul>
 
   <h2>เมนูแนะนำ</h2>
@@ -57,7 +71,6 @@
       { title: "ฟักทองผัดไข่", cuisine: "ไทย", ingredients: ["ฟักทอง", "ไข่"] },
       { title: "ผัดผักรวม", cuisine: "จีน", ingredients: ["กะหล่ำปลี", "แครอท", "กระเทียม"] }
     ];
-    // ไอเดียจับคู่แปลกๆ (จำลอง)
     const oddMenus = [
       { title: "{a}{b}ทอดกรอบ", tip: "ชุบแป้งทอดให้กรอบ จิ้มซอสพริก" },
       { title: "ซุปครีม{a}และ{b}", tip: "ปั่นให้เนียน ราดน้ำมันพริกเล็กน้อย" },
@@ -67,6 +80,12 @@
     ];
 
     let oddMode = false;
+
+    // TODO (ฝั่งหลังบ้าน): ส่งไฟล์รูปไปให้ AI อ่าน แล้วคืนรายชื่อวัตถุดิบ
+    // ตัวอย่างค่าที่คืน: ["ไข่", "ต้นหอม"]
+    async function detectIngredients(file) {
+      return [];
+    }
 
     function daysLeft(d) {
       return Math.ceil((new Date(d) - new Date()) / 86400000);
@@ -198,6 +217,41 @@
       items.push({ name, quantity: document.getElementById("qty").value, expiry_date: exp });
       document.getElementById("name").value = "";
       document.getElementById("qty").value = "";
+      render();
+    };
+
+    // ----- เพิ่มจากรูปถ่าย -----
+    const photoInput = document.getElementById("photo");
+    const preview = document.getElementById("preview");
+
+    photoInput.onchange = async () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      if (preview.dataset.url) URL.revokeObjectURL(preview.dataset.url);
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.dataset.url = url;
+      preview.style.display = "block";
+      document.getElementById("photoForm").style.display = "block";
+      document.getElementById("photoExp").value = inDays(5);
+
+      const names = await detectIngredients(file);
+      document.getElementById("photoNames").value = names.join(", ");
+      document.getElementById("photoNote").textContent = names.length
+        ? "อ่านจากรูปได้ตามนี้ แก้ไขได้ก่อนกดเพิ่ม"
+        : "ยังไม่ได้เชื่อมการอ่านรูปด้วย AI กรุณาพิมพ์ชื่อวัตถุดิบที่เห็นในรูปเอง";
+    };
+
+    document.getElementById("photoAdd").onclick = () => {
+      const exp = document.getElementById("photoExp").value;
+      const names = document.getElementById("photoNames").value
+        .split(",").map(s => s.trim()).filter(Boolean);
+      if (!names.length || !exp) return;
+      names.forEach(n => items.push({ name: n, quantity: "", expiry_date: exp }));
+      document.getElementById("photoNames").value = "";
+      document.getElementById("photoForm").style.display = "none";
+      preview.style.display = "none";
+      photoInput.value = "";
       render();
     };
 
