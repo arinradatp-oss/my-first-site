@@ -3,57 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>เว็บแรกของฉัน</title>
+  <title>What's Left in My Fridge</title>
   <style>
     body { font-family: sans-serif; max-width: 480px; margin: 24px auto; padding: 0 16px; }
-    input { width: 100%; padding: 10px; box-sizing: border-box; font-size: 16px; }
-    button { margin-top: 8px; padding: 10px 16px; font-size: 16px; }
-    li { padding: 6px 0; border-bottom: 1px solid #ddd; }
-    #status { color: #b00; }
+    input, button { padding: 10px; font-size: 16px; box-sizing: border-box; }
+    input { width: 100%; margin-bottom: 8px; }
+    li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; }
+    .soon { color: #c0392b; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>สมุดข้อความ</h1>
-  <input id="msg" placeholder="พิมพ์ข้อความ...">
-  <button id="send">ส่ง</button>
-  <p id="status"></p>
+  <h1>ตู้เย็นของฉัน</h1>
+  <input id="name" placeholder="ชื่อวัตถุดิบ เช่น ไข่">
+  <input id="qty" placeholder="จำนวน เช่น 3 ฟอง">
+  <input id="exp" type="date">
+  <button id="add">เพิ่มของ</button>
   <ul id="list"></ul>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const db = supabase.createClient(
-      "https://dctgmbzzqmtezojuihto.supabase.co",
-      "sb_publishable_UxGKykanom6yFc5ApwdmCQ_ylCx3a0s"
-    );
-    const list = document.getElementById("list");
-    const status = document.getElementById("status");
-    const input = document.getElementById("msg");
+    // ข้อมูลจำลอง: ภายหลังเปลี่ยนเป็นดึงจากหลังบ้าน
+    let items = [
+      { name: "นม", quantity: "1 กล่อง", expiry_date: "2026-10-06" },
+      { name: "ไข่", quantity: "4 ฟอง", expiry_date: "2026-10-12" }
+    ];
 
-    async function load() {
-      const { data, error } = await db
-        .from("messages")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) { status.textContent = error.message; return; }
-      list.innerHTML = "";
-      data.forEach(row => {
-        const li = document.createElement("li");
-        li.textContent = row.text;
-        list.appendChild(li);
-      });
+    function daysLeft(d) {
+      return Math.ceil((new Date(d) - new Date()) / 86400000);
     }
 
-    document.getElementById("send").onclick = async () => {
-      const text = input.value.trim();
-      if (!text) return;
-      const { error } = await db.from("messages").insert({ text });
-      if (error) { status.textContent = error.message; return; }
-      status.textContent = "";
-      input.value = "";
-      load();
+    function render() {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      items
+        .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
+        .forEach(it => {
+          const left = daysLeft(it.expiry_date);
+          const li = document.createElement("li");
+          const label = left < 0 ? "หมดอายุแล้ว" : "อีก " + left + " วัน";
+          li.innerHTML = "<span></span><span class='" + (left <= 3 ? "soon" : "") + "'>" + label + "</span>";
+          li.firstChild.textContent = it.name + " (" + (it.quantity || "-") + ")";
+          list.appendChild(li);
+        });
+    }
+
+    document.getElementById("add").onclick = () => {
+      const name = document.getElementById("name").value.trim();
+      const exp = document.getElementById("exp").value;
+      if (!name || !exp) return;
+      items.push({ name, quantity: document.getElementById("qty").value, expiry_date: exp });
+      document.getElementById("name").value = "";
+      document.getElementById("qty").value = "";
+      render();
     };
 
-    load();
+    render();
   </script>
 </body>
 </html>
